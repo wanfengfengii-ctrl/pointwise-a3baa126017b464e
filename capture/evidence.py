@@ -55,10 +55,11 @@ class EvidenceStore:
         ''')
         self.db.execute('''
             CREATE TABLE IF NOT EXISTS capture_slot (
-                roll_id TEXT PRIMARY KEY NOT NULL,
+                roll_id TEXT NOT NULL,
                 sequence INTEGER NOT NULL,
                 changes TEXT NOT NULL,
                 raw_row TEXT NOT NULL,
+                PRIMARY KEY (roll_id, sequence),
                 FOREIGN KEY (roll_id, sequence) REFERENCES capture_facts (roll_id, sequence)
             )
         ''')
@@ -70,7 +71,12 @@ class EvidenceStore:
         ''')
 
     def save_prepared(self, fact: CaptureFact) -> CaptureFact:
-        """Record the receipt and replace the live slot in one preparation transaction."""
+        """Record the receipt and the recovered row in one preparation transaction.
+
+        Each prepared sequence keeps its own resolved row, because confirmation
+        lets the device reclaim the source.  The row has to survive even when a
+        later frame is prepared, so it cannot live in a single overwritten slot.
+        """
         source = fact.source
         existing = self.get(source.roll_id, source.sequence)
         if existing is not None:
@@ -91,8 +97,8 @@ class EvidenceStore:
         changes = json.dumps([(column, format(value, 'x')) for column, value in source.changes])
         self.db.execute('''
             INSERT INTO capture_slot (roll_id, sequence, changes, raw_row) VALUES (?, ?, ?, ?)
-            ON CONFLICT (roll_id) DO UPDATE SET
-                sequence = excluded.sequence, changes = excluded.changes, raw_row = excluded.raw_row
+            ON CONFLICT (roll_id, sequence) DO UPDATE SET
+                changes = excluded.changes, raw_row = excluded.raw_row
         ''', (source.roll_id, source.sequence, changes, encode_row(fact.raw_row)))
         return fact
 
@@ -118,8 +124,8 @@ class EvidenceStore:
         return CaptureFact(receipt.frame(changes), decode_row(row['raw_row']))
 
     def update_preview(self, fact: CaptureFact) -> None:
-        if fact.source.vibration_exceeded:
-            return
+        # A well-formed frame fixes the baseline for the next delta even when it
+        # is rejected for vibration: only its publication is suppressed.
         self.db.execute('''
             INSERT INTO capture_preview (roll_id, raw_row) VALUES (?, ?)
             ON CONFLICT (roll_id) DO UPDATE SET raw_row = excluded.raw_row

@@ -5,7 +5,7 @@ from archive.prefix import next_unresolved
 from archive.publication import ArchiveStateError, ManifestStore
 from archive.qualification import qualify_frame
 from capture.checkpoint import CaptureCheckpoint
-from capture.evidence import CaptureFact, EvidenceStore
+from capture.evidence import EvidenceStore
 from run.catalog import RunCatalog
 from run.workspace import write_transaction
 
@@ -26,14 +26,12 @@ def settle(db: sqlite3.Connection, roll_id: str, through: int | None = None) -> 
             for sequence in range(first, bound + 1):
                 if dispositions.get(roll_id, sequence) is not None:
                     continue
-                receipt = evidence.read_receipt(roll_id, sequence)
-                if receipt is None:
+                # The device reclaims a confirmed source, and a later frame
+                # replaces the live baseline.  The outcome therefore has to be
+                # built from the row recovered and stored at that sequence, not
+                # from whatever row the roll has advanced to by settlement time.
+                fact = evidence.get(roll_id, sequence)
+                if fact is None:
                     raise ArchiveStateError(f'confirmed frame {sequence} lacks evidence for {roll_id!r}')
-                if receipt.vibration_exceeded:
-                    preview = ()
-                else:
-                    preview = evidence.read_preview(roll_id)
-                    if preview is None:
-                        raise ArchiveStateError(f'confirmed roll {roll_id!r} lacks a preview')
-                dispositions.record(qualify_frame(CaptureFact(receipt.frame(()), preview)))
+                dispositions.record(qualify_frame(fact))
         return manifests.publish_prefix(roll_id, bound)

@@ -41,3 +41,18 @@ class QualificationTests(WorkspaceTest):
         self.assertEqual([entry.origin.source_key for entry in second.entries], ['slot-01', 'slot-02'])
         self.assertEqual((second.totals.accepted, second.totals.rejected), (2, 0))
         self.assertIsNone(pump(self.db, ROLL, port))
+
+    def test_rejected_base_applies_before_any_publication(self):
+        port = self.start()
+        self.assertEqual(pump(self.db, ROLL, port), 1)
+        self.assertEqual(pump(self.db, ROLL, port), 2)
+        second = get_manifest(self.db, settle(self.db, ROLL, through=2))
+        self.assertEqual(
+            second.entries[1].raw_row, (15, 21),
+            'a rejected but well-formed frame still fixes the next baseline',
+        )
+        self.assertEqual(second.entries[1].spread, 6)
+        self.assertEqual(second.entries[1].origin.source_key, 'slot-02')
+        self.assertIsNone(second.entries[0].raw_row)
+        self.assertEqual(second.entries[0].reason, 'vibration_exceeded')
+        self.assertEqual(second.entries[0].origin.source_key, 'slot-01')
