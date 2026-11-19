@@ -1,0 +1,9 @@
+{
+  "roll_id": "STRIP-07",
+  "header": {"recording_id": "LS7-SHIFT-A", "width": 2, "initial_row": [10, 20]},
+  "frames": [
+    {"roll_id": "STRIP-07", "recording_id": "LS7-SHIFT-A", "sequence": 1, "changes": [[1, 15]], "vibration_exceeded": true, "origin": {"station": "LS-7", "source_key": "slot-01"}},
+    {"roll_id": "STRIP-07", "recording_id": "LS7-SHIFT-A", "sequence": 2, "changes": [[2, 21]], "vibration_exceeded": false, "origin": {"station": "LS-7", "source_key": "slot-02"}},
+    {"roll_id": "STRIP-07", "recording_id": "LS7-SHIFT-A", "sequence": 3, "changes": [[1, 17]], "vibration_exceeded": false, "origin": {"station": "LS-7", "source_key": "slot-03"}}
+  ]
+}
